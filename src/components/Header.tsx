@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'architecture', label: 'Architecture & Review', icon: GitCompare, badge: 'Rearchitected' },
     { id: 'code', label: 'Code Explorer', icon: FileCode2, badge: '5 Modules' },
     { id: 'schema', label: 'Schema Explorer', icon: Search, badge: '370 Defs' },
-    { id: 'validator', label: 'Live Validator', icon: ShieldCheck, badge: 'Test Playground' },
+    { id: 'validator', label: 'X3DUOM Validator', icon: ShieldCheck, badge: 'Better than Schema' },
     { id: 'export', label: 'Export & CLI Guide', icon: Terminal, badge: 'Download' }
   ];
 

@@ -44,6 +44,18 @@ export const ExportTab: React.FC<ExportTabProps> = ({
 
   const cliCommands = [
     {
+      id: 'cmd-validator',
+      title: 'Run X3DUOM Native Semantic Validator',
+      command: 'python3 x3d_validator.py scene.json',
+      desc: 'Validates DEF/USE cross-references, ROUTE type compatibility, and container field inheritance directly against X3DUOM.'
+    },
+    {
+      id: 'cmd-validator-json',
+      title: 'Validator JSON Output Mode (for CI/CD)',
+      command: 'python3 x3d_validator.py scene.json --json',
+      desc: 'Outputs machine-readable JSON report with error paths, expected vs actual values, and suggestions.'
+    },
+    {
       id: 'cmd-standard',
       title: 'Generate X3D 4.0 JSON Schema to File',
       command: 'python3 x3d_schema_generator.py 4.0 -i X3dUnifiedObjectModel-4.0.xml -o x3d-4.0-JSONSchema.json',
@@ -56,18 +68,21 @@ export const ExportTab: React.FC<ExportTabProps> = ({
       desc: 'Direct drop-in replacement for etgenerateJSONschema2020-12.py pipelines.'
     },
     {
-      id: 'cmd-module',
-      title: 'Run via Modular Python Package',
-      command: 'python3 -m x3d_schema_gen 4.0 -i X3dUnifiedObjectModel-4.0.xml -o x3d-4.0-JSONSchema.json',
-      desc: 'Executes the modular package entrypoint with standard argparse CLI.'
-    },
-    {
       id: 'cmd-tests',
       title: 'Run Automated Unit Test Suite',
       command: 'python3 -m unittest discover tests',
       desc: 'Validates schema root, dimensions, Transform properties, and JSON serialization.'
     }
   ];
+
+  const handleDownloadValidator = () => {
+    const link = document.createElement('a');
+    link.href = '/x3d_validator.py';
+    link.download = 'x3d_validator.py';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const pythonSnippet = `import xml.etree.ElementTree as ET
 from x3d_schema_gen import X3DSchemaGenerator
@@ -98,12 +113,38 @@ with open("x3d-4.0-JSONSchema.json", "w", encoding="utf-8") as f:
             <span>Download Center</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Get the rearchitected Python code ready for production deployment, CI/CD, or local development.
+            Get the rearchitected Python code and X3DUOM native validator ready for production deployment or CI/CD.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Card 1: Standalone Script */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card 1: X3DUOM Native Validator */}
+          <div className="p-5 rounded-2xl border border-emerald-900/40 bg-emerald-950/15 space-y-4 flex flex-col justify-between hover:border-emerald-800 transition">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Shield className="w-5 h-5" />
+                </span>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-300">
+                  Better than Schema
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white font-mono">x3d_validator.py</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Native semantic validator referencing X3DUOM directly. Validates DEF/USE graphs, ROUTE type compatibility, and container fields.
+              </p>
+            </div>
+
+            <button
+              onClick={handleDownloadValidator}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2 active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download Validator (.py)</span>
+            </button>
+          </div>
+
+          {/* Card 2: Standalone Schema Generator */}
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/70 space-y-4 flex flex-col justify-between hover:border-slate-700 transition">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -111,12 +152,12 @@ with open("x3d-4.0-JSONSchema.json", "w", encoding="utf-8") as f:
                   <FileCode2 className="w-5 h-5" />
                 </span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                  Single File (36 KB)
+                  Schema Generator
                 </span>
               </div>
               <h3 className="text-base font-bold text-white font-mono">x3d_schema_generator.py</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Self-contained, standalone Python script with zero external dependencies. Drop-in replacement for the original script in any existing build script.
+                Self-contained, standalone Python script with zero external dependencies. Generates Draft 2020-12 JSON Schema.
               </p>
             </div>
 
@@ -125,11 +166,11 @@ with open("x3d-4.0-JSONSchema.json", "w", encoding="utf-8") as f:
               className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition flex items-center justify-center gap-2 active:scale-95"
             >
               <Download className="w-4 h-4" />
-              <span>Download Standalone Script (.py)</span>
+              <span>Download Generator (.py)</span>
             </button>
           </div>
 
-          {/* Card 2: Modular Package */}
+          {/* Card 3: Modular Package */}
           <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/70 space-y-4 flex flex-col justify-between hover:border-slate-700 transition">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -137,12 +178,12 @@ with open("x3d-4.0-JSONSchema.json", "w", encoding="utf-8") as f:
                   <Archive className="w-5 h-5" />
                 </span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                  Full ZIP Package (20 KB)
+                  Full ZIP Package
                 </span>
               </div>
               <h3 className="text-base font-bold text-white font-mono">x3d_schema_package.zip</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Contains the modular <code className="text-cyan-300 font-mono">x3d_schema_gen/</code> package, test suite, README.md, and standalone script. Ideal for pip / poetry integration.
+                Contains the modular <code className="text-cyan-300 font-mono">x3d_schema_gen/</code> package, test suite, and README.md.
               </p>
             </div>
 
@@ -151,7 +192,7 @@ with open("x3d-4.0-JSONSchema.json", "w", encoding="utf-8") as f:
               className="w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/20 transition flex items-center justify-center gap-2 active:scale-95"
             >
               <Download className="w-4 h-4" />
-              <span>Download Package ZIP (.zip)</span>
+              <span>Download Package (.zip)</span>
             </button>
           </div>
         </div>

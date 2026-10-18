@@ -30,9 +30,18 @@ export const CodeExplorerTab: React.FC = () => {
       filename: 'x3d_schema_generator.py',
       path: 'x3d_schema_generator.py',
       language: 'python',
-      badge: 'Standalone Drop-in',
+      badge: 'Standalone Generator',
       description: 'Single-file production replacement for etgenerateJSONschema2020-12.py with zero external dependencies.',
       content: codeFiles.standalone
+    },
+    {
+      id: 'validator',
+      filename: 'x3d_validator.py',
+      path: 'x3d_validator.py',
+      language: 'python',
+      badge: 'X3DUOM Validator',
+      description: 'Native semantic validator directly referencing X3DUOM to validate DEF/USE graph integrity, ROUTE type compatibility, and container fields.',
+      content: codeFiles.validator || codeFiles.standalone
     },
     {
       id: 'generator',
