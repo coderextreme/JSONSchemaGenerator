@@ -1,3 +1,5 @@
+AI generated code.  unreviewed.
+
 # X3D JSON Schema Generator (Rearchitected)
 
 A modern, maintainable, readable, and typed Python tool that converts **X3D Unified Object Model (X3DUOM)** XML specifications into standard **JSON Schema (Draft 2020-12)**.
