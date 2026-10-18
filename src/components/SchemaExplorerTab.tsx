@@ -1,0 +1,418 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  Search, 
+  Layers, 
+  Tag, 
+  Boxes, 
+  CheckCircle2, 
+  Copy, 
+  Check, 
+  FileJson, 
+  Code2, 
+  Info,
+  ExternalLink,
+  ChevronRight,
+  Filter
+} from 'lucide-react';
+import { 
+  allDefinitionsSummary, 
+  sampleDefinitions, 
+  schemaMeta, 
+  DefSummary 
+} from '../data/schemaNodesData';
+
+export const SchemaExplorerTab: React.FC = () => {
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedDefId, setSelectedDefId] = useState<string>('Transform');
+  const [copied, setCopied] = useState<boolean>(false);
+  const [viewRawJson, setViewRawJson] = useState<boolean>(false);
+
+  // Filter definitions
+  const filteredDefs = useMemo(() => {
+    return allDefinitionsSummary.filter(def => {
+      const matchesSearch = 
+        def.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        def.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        def.description.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = selectedCategory === 'all' || def.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [searchTerm, selectedCategory]);
+
+  // Current active definition object
+  const activeDefObj = useMemo(() => {
+    if (sampleDefinitions[selectedDefId]) {
+      return sampleDefinitions[selectedDefId];
+    }
+    // Fallback stub for definitions not in curated top sample
+    const summary = allDefinitionsSummary.find(d => d.id === selectedDefId);
+    return {
+      title: summary?.title || selectedDefId,
+      description: summary?.description || `Definition for ${selectedDefId}`,
+      $comment: `Category: ${summary?.category || 'X3D Definition'}`,
+      properties: {
+        "#comment": { "type": "string" },
+        "@DEF": { "type": "string", "pattern": "^[a-zA-Z_][\\w.-]*$" },
+        "@USE": { "type": "string", "pattern": "^[a-zA-Z_][\\w.-]*$" }
+      }
+    };
+  }, [selectedDefId]);
+
+  // Extract properties
+  const propertiesData = useMemo(() => {
+    let props: Record<string, any> = {};
+    let requiredList: string[] = [];
+    let isOneOf = false;
+
+    if (activeDefObj.properties) {
+      props = activeDefObj.properties;
+      requiredList = activeDefObj.required || [];
+    } else if (activeDefObj.oneOf && activeDefObj.oneOf[1]?.properties) {
+      isOneOf = true;
+      props = activeDefObj.oneOf[1].properties;
+      requiredList = activeDefObj.oneOf[1].required || [];
+    } else if (activeDefObj.items?.properties) {
+      props = activeDefObj.items.properties;
+      requiredList = activeDefObj.items.required || [];
+    }
+
+    const attributes: Array<{ name: string; schema: any; isRequired: boolean }> = [];
+    const childNodes: Array<{ name: string; schema: any; isRequired: boolean }> = [];
+
+    Object.entries(props).forEach(([name, schema]) => {
+      const isReq = requiredList.includes(name);
+      if (name.startsWith('@')) {
+        attributes.push({ name, schema, isRequired: isReq });
+      } else {
+        childNodes.push({ name, schema, isRequired: isReq });
+      }
+    });
+
+    return {
+      attributes,
+      childNodes,
+      requiredList,
+      isOneOf
+    };
+  }, [activeDefObj]);
+
+  const handleCopyJson = () => {
+    navigator.clipboard.writeText(JSON.stringify(activeDefObj, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const categories = [
+    { id: 'all', label: 'All Definitions', count: schemaMeta.totalDefs },
+    { id: 'concrete-node', label: 'Concrete Nodes', count: schemaMeta.categories['concrete-node'] },
+    { id: 'container-field', label: 'Container Fields', count: schemaMeta.categories['container-field'] },
+    { id: 'statement', label: 'Statements', count: schemaMeta.categories['statement'] },
+    { id: 'geosystem', label: 'GeoSystem', count: schemaMeta.categories['geosystem'] },
+    { id: 'use-field', label: 'USE Fields', count: schemaMeta.categories['use-field'] }
+  ];
+
+  return (
+    <div className="space-y-6 pb-16">
+      {/* Top Banner with Schema Metadata */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-800 bg-slate-900/60">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Boxes className="w-5 h-5 text-indigo-400" />
+              <span>X3D Schema Definition Inspector</span>
+            </h2>
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              370 Total Definitions
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Browse and inspect every node, statement, container field, and attribute rule generated by the rearchitected engine.
+          </p>
+        </div>
+
+        {/* Quick Node Badges */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-slate-500 mr-1">Popular:</span>
+          {['Transform', 'Box', 'Sphere', 'Shape', 'Script', 'Material', '-children', '@geoSystem'].map((nodeName) => (
+            <button
+              key={nodeName}
+              onClick={() => setSelectedDefId(nodeName)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
+                selectedDefId === nodeName
+                  ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {nodeName}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Grid: Left Filter List + Right Definition Detail */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Search & Filter List */}
+        <div className="lg:col-span-4 space-y-3">
+          {/* Search Box */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search 370 definitions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
+            />
+          </div>
+
+          {/* Category Pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-2.5 py-1 text-[11px] rounded-lg font-medium transition ${
+                  selectedCategory === cat.id
+                    ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40'
+                    : 'bg-slate-900/60 text-slate-400 border border-slate-800/80 hover:text-slate-200'
+                }`}
+              >
+                {cat.label} ({cat.count})
+              </button>
+            ))}
+          </div>
+
+          {/* Definition List */}
+          <div className="rounded-xl border border-slate-800 bg-slate-950 max-h-[580px] overflow-y-auto divide-y divide-slate-800/60">
+            {filteredDefs.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 font-mono">
+                No matching definitions found.
+              </div>
+            ) : (
+              filteredDefs.map((def) => {
+                const isSelected = def.id === selectedDefId;
+                return (
+                  <button
+                    key={def.id}
+                    onClick={() => setSelectedDefId(def.id)}
+                    className={`w-full text-left p-3 transition flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-indigo-600/20 text-white border-l-2 border-indigo-500'
+                        : 'text-slate-300 hover:bg-slate-900/80 hover:text-white'
+                    }`}
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="font-mono text-xs font-semibold truncate">
+                        {def.name}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                        {def.title !== def.name ? def.title : def.category}
+                      </div>
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-500 shrink-0 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                      {def.propertiesCount > 0 ? `${def.propertiesCount} props` : 'schema'}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Right Column: Definition Inspector */}
+        <div className="lg:col-span-8 rounded-2xl border border-slate-800 bg-slate-900/70 p-5 sm:p-6 space-y-6 shadow-xl">
+          {/* Header of Selected Definition */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-xl font-bold text-white font-mono">{selectedDefId}</h3>
+                {propertiesData.isOneOf && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    oneOf: [-USEField, NodeObject]
+                  </span>
+                )}
+                {activeDefObj.type === 'array' && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Array Node
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                {activeDefObj.description || activeDefObj.title || 'Standard X3D Node Definition'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewRawJson(!viewRawJson)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                  viewRawJson
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span>{viewRawJson ? 'Structured View' : 'Raw JSON'}</span>
+              </button>
+              <button
+                onClick={handleCopyJson}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Copy JSON</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Raw JSON View vs Structured View */}
+          {viewRawJson ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs text-slate-200 overflow-x-auto max-h-[500px]">
+              <pre>{JSON.stringify(activeDefObj, null, 2)}</pre>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Attributes Section (@ prefixed) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-indigo-400" />
+                    <span>Attributes & Fields ({propertiesData.attributes.length})</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500">Prefix: @attributeName</span>
+                </div>
+
+                {propertiesData.attributes.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-slate-500 text-center font-mono">
+                    No attribute fields defined for this construct.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider font-semibold">
+                          <th className="py-2.5 px-3.5">Field</th>
+                          <th className="py-2.5 px-3.5">Type & Comment</th>
+                          <th className="py-2.5 px-3.5">Default Value</th>
+                          <th className="py-2.5 px-3.5">Constraints / Bounds</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                        {propertiesData.attributes.map((attr, idx) => (
+                          <tr key={idx} className="hover:bg-slate-900/40 transition">
+                            <td className="py-2.5 px-3.5 font-bold text-indigo-300 whitespace-nowrap">
+                              {attr.name}
+                              {attr.isRequired && (
+                                <span className="ml-1.5 text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase">
+                                  req
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-slate-300">
+                              <div>{attr.schema.type || 'any'}</div>
+                              {attr.schema.$comment && (
+                                <div className="text-[10px] text-slate-500 font-sans">
+                                  {attr.schema.$comment}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-emerald-400">
+                              {attr.schema.default !== undefined 
+                                ? JSON.stringify(attr.schema.default) 
+                                : attr.schema.items?.default !== undefined
+                                  ? `items: ${JSON.stringify(attr.schema.items.default)}`
+                                  : <span className="text-slate-600">-</span>
+                              }
+                            </td>
+                            <td className="py-2.5 px-3.5 text-slate-400">
+                              {attr.schema.minItems && (
+                                <span className="mr-2">min: {attr.schema.minItems}</span>
+                              )}
+                              {attr.schema.maxItems && (
+                                <span className="mr-2">max: {attr.schema.maxItems}</span>
+                              )}
+                              {attr.schema.pattern && (
+                                <span className="text-cyan-400 text-[10px]">regex: {attr.schema.pattern}</span>
+                              )}
+                              {attr.schema.enum && (
+                                <span className="text-amber-400 text-[10px]">enum: [{attr.schema.enum.slice(0, 3).join(', ')}{attr.schema.enum.length > 3 ? '...' : ''}]</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Child Nodes Section (- prefixed and special nodes) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-emerald-400" />
+                    <span>Container Fields & Child Elements ({propertiesData.childNodes.length})</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500">Child nodes, -children, IS, ROUTE</span>
+                </div>
+
+                {propertiesData.childNodes.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-slate-500 text-center font-mono">
+                    No child elements defined.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-900/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider font-semibold">
+                          <th className="py-2.5 px-3.5">Element</th>
+                          <th className="py-2.5 px-3.5">Reference / Schema</th>
+                          <th className="py-2.5 px-3.5">Description / Target</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                        {propertiesData.childNodes.map((child, idx) => (
+                          <tr key={idx} className="hover:bg-slate-900/40 transition">
+                            <td className="py-2.5 px-3.5 font-bold text-emerald-300 whitespace-nowrap">
+                              {child.name}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-cyan-400">
+                              {child.schema.$ref ? (
+                                <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                                  {child.schema.$ref}
+                                </span>
+                              ) : (
+                                <span>type: {child.schema.type || 'object'}</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-slate-400 font-sans text-xs">
+                              {child.schema.description || (
+                                child.name === '-children'
+                                  ? 'Contains child nodes, shapes, routes, or statements'
+                                  : `Embedded container field: ${child.name}`
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
